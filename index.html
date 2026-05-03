@@ -308,33 +308,16 @@
 
 <script>
 let currentMode = 'video';
-let availableInstances = [];
-let instancesLoaded = false;
+let availableInstances = ['https://cobalt-api-production-dd4e.up.railway.app'];
+let instancesLoaded = true;
 
-async function loadInstances() {
+function loadInstances() {
   const dot = document.getElementById('serverDot');
   const txt = document.getElementById('serverText');
   const cnt = document.getElementById('serverCount');
-  try {
-    const res = await fetch('https://instances.cobalt.best/api', { cache: 'no-cache' });
-    const data = await res.json();
-    availableInstances = data
-      .filter(i => i.online && i.info && i.info.auth === false && i.info.cors === true)
-      .sort((a, b) => (b.score || 0) - (a.score || 0))
-      .map(i => i.protocol + '://' + i.api);
-    if (availableInstances.length > 0) {
-      dot.className = 'server-dot ok';
-      txt.textContent = 'Servidor pronto — ' + availableInstances[0].replace('https://', '');
-      cnt.textContent = availableInstances.length + ' disponíveis';
-      instancesLoaded = true;
-    } else { throw new Error('Nenhuma instância sem autenticação'); }
-  } catch (e) {
-    dot.className = 'server-dot err';
-    txt.textContent = 'Usando servidores alternativos';
-    cnt.textContent = '';
-    availableInstances = ['https://cobalt.meowing.de', 'https://cobalt.canine.tools'];
-    instancesLoaded = true;
-  }
+  dot.className = 'server-dot ok';
+  txt.textContent = 'Servidor pronto — cobalt-api-production-dd4e.up.railway.app';
+  cnt.textContent = 'instância privada';
 }
 
 function setMode(mode) {

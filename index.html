@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaGrab — Baixador de Vídeos</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a26; --bg4: #22223a;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.15);
+    --text: #f0f0ff; --text2: #9999bb; --text3: #6666aa;
+    --accent: #7c6af5; --accent2: #a599ff; --accent-glow: rgba(124,106,245,0.3);
+    --green: #22c98a; --red: #f05a5a; --yellow: #f5c842;
+    --font: 'Space Grotesk', sans-serif; --mono: 'JetBrains Mono', monospace;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--font);
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 0 1rem 4rem; overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(124,106,245,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(124,106,245,0.03) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none; z-index: 0;
+  }
+  body::after {
+    content: ''; position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, rgba(124,106,245,0.12) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 680px; padding-top: 3.5rem; }
+
+  .header { text-align: center; margin-bottom: 3rem; }
+  .logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; }
+  .logo-icon {
+    width: 42px; height: 42px; background: linear-gradient(135deg, var(--accent), #a599ff);
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 24px var(--accent-glow);
+  }
+  .logo-icon svg { width: 22px; height: 22px; fill: white; }
+  .logo-text {
+    font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 30%, var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .tagline { font-size: 0.95rem; color: var(--text2); font-weight: 400; }
+  .platforms { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 1.2rem 0 0; }
+  .badge {
+    font-size: 0.72rem; font-family: var(--mono); padding: 4px 10px;
+    border-radius: 20px; border: 1px solid var(--border2); color: var(--text2);
+    background: var(--bg3); letter-spacing: 0.3px; transition: all 0.2s;
+  }
+  .badge:hover { border-color: var(--accent); color: var(--accent2); }
+
+  .server-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 1.2rem;
+    font-size: 0.8rem; color: var(--text2);
+  }
+  .server-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); flex-shrink: 0; transition: background 0.3s; }
+  .server-dot.loading { background: var(--yellow); animation: pulse 1s infinite; }
+  .server-dot.ok { background: var(--green); }
+  .server-dot.err { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .server-text { flex: 1; }
+  .server-count { font-family: var(--mono); color: var(--text3); font-size: 0.75rem; }
+
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2rem;
+    box-shadow: 0 4px 40px rgba(0,0,0,0.5); transition: border-color 0.3s;
+  }
+  .card:focus-within { border-color: var(--border2); }
+
+  .url-wrap { display: flex; gap: 10px; align-items: stretch; margin-bottom: 1.5rem; }
+  .input-box { flex: 1; position: relative; }
+  .input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; opacity: 0.4; }
+  .url-input {
+    width: 100%; height: 52px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); font-family: var(--mono);
+    font-size: 0.82rem; padding: 0 14px 0 42px; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s; letter-spacing: 0.2px;
+  }
+  .url-input::placeholder { color: var(--text3); font-family: var(--font); font-size: 0.9rem; letter-spacing: 0; }
+  .url-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .paste-btn {
+    height: 52px; padding: 0 16px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text2); font-family: var(--font); font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .paste-btn:hover { border-color: var(--border2); color: var(--text); background: var(--bg4); }
+
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
+  .opt-group label {
+    display: block; font-size: 0.75rem; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; font-weight: 500;
+  }
+  .seg-ctrl {
+    display: flex; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 10px; padding: 3px; gap: 3px;
+  }
+  .seg-btn {
+    flex: 1; padding: 7px 10px; border-radius: 8px; border: none;
+    background: transparent; color: var(--text2); font-family: var(--font);
+    font-size: 0.83rem; cursor: pointer; transition: all 0.2s; font-weight: 500;
+  }
+  .seg-btn.active { background: var(--accent); color: white; box-shadow: 0 2px 12px var(--accent-glow); }
+  .seg-btn:not(.active):hover { color: var(--text); background: var(--bg4); }
+  .custom-select {
+    width: 100%; height: 40px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-family: var(--font); font-size: 0.85rem;
+    padding: 0 32px 0 12px; outline: none; cursor: pointer; transition: border-color 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236666aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; background-color: var(--bg3);
+  }
+  .custom-select:focus { border-color: var(--accent); }
+  .custom-select option { background: var(--bg3); }
+
+  .dl-btn {
+    width: 100%; height: 56px; background: linear-gradient(135deg, var(--accent), #a599ff);
+    border: none; border-radius: 14px; color: white; font-family: var(--font);
+    font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.25s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 4px 20px var(--accent-glow); letter-spacing: 0.2px; position: relative; overflow: hidden;
+  }
+  .dl-btn::before { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0); transition: background 0.2s; }
+  .dl-btn:hover:not(:disabled)::before { background: rgba(255,255,255,0.08); }
+  .dl-btn:active:not(:disabled) { transform: scale(0.98); }
+  .dl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .dl-btn svg { width: 20px; height: 20px; fill: white; flex-shrink: 0; }
+
+  .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result { margin-top: 1.5rem; animation: fadeUp 0.35s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .result-card { border-radius: 14px; padding: 1.25rem 1.5rem; border: 1px solid; }
+  .result-card.success { background: rgba(34,201,138,0.06); border-color: rgba(34,201,138,0.25); }
+  .result-card.error { background: rgba(240,90,90,0.06); border-color: rgba(240,90,90,0.25); }
+  .result-card.info { background: rgba(124,106,245,0.06); border-color: rgba(124,106,245,0.25); }
+  .result-header { display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem; }
+  .result-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .result-icon.s { background: rgba(34,201,138,0.15); }
+  .result-icon.e { background: rgba(240,90,90,0.15); }
+  .result-icon.i { background: rgba(124,106,245,0.15); }
+  .result-icon svg { width: 14px; height: 14px; }
+  .result-title { font-weight: 600; font-size: 0.95rem; }
+  .result-sub { font-size: 0.82rem; color: var(--text2); margin-top: 2px; }
+  .dl-link-btn {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 0.75rem;
+    padding: 10px 18px; background: rgba(34,201,138,0.12);
+    border: 1px solid rgba(34,201,138,0.3); border-radius: 10px;
+    color: var(--green); font-family: var(--font); font-size: 0.88rem;
+    font-weight: 600; text-decoration: none; cursor: pointer; transition: all 0.2s;
+  }
+  .dl-link-btn:hover { background: rgba(34,201,138,0.2); }
+  .dl-link-btn svg { width: 15px; height: 15px; fill: currentColor; }
+
+  .picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 0.75rem; }
+  .picker-item {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.75rem; text-align: center; cursor: pointer; transition: all 0.2s;
+    text-decoration: none; color: var(--text); display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .picker-item:hover { border-color: var(--accent); background: rgba(124,106,245,0.08); }
+  .picker-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 6px; background: var(--bg4); }
+  .picker-label { font-size: 0.75rem; color: var(--text2); font-family: var(--mono); }
+
+  .action-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .retry-btn {
+    padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(240,90,90,0.3);
+    background: rgba(240,90,90,0.08); color: var(--red); font-family: var(--font);
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+  }
+  .retry-btn:hover { background: rgba(240,90,90,0.15); }
+  .alt-btn {
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--text2); font-family: var(--font);
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .alt-btn:hover { color: var(--text); }
+
+  .info-section { margin-top: 2.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .info-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 1.2rem; text-align: center; }
+  .info-num { font-size: 1.6rem; font-weight: 700; background: linear-gradient(135deg, var(--accent2), #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; margin-bottom: 4px; }
+  .info-label { font-size: 0.78rem; color: var(--text3); }
+
+  footer { margin-top: 3rem; text-align: center; font-size: 0.78rem; color: var(--text3); line-height: 1.8; }
+  footer a { color: var(--text2); text-decoration: none; }
+  footer a:hover { color: var(--accent2); }
+
+  @media (max-width: 520px) {
+    .options { grid-template-columns: 1fr; }
+    .wrap { padding-top: 2rem; }
+    .card { padding: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      </div>
+      <span class="logo-text">MediaGrab</span>
+    </div>
+    <p class="tagline">Baixe vídeos e converta em MP3 gratuitamente</p>
+    <div class="platforms">
+      <span class="badge">YouTube</span>
+      <span class="badge">TikTok</span>
+      <span class="badge">Instagram</span>
+      <span class="badge">Twitter/X</span>
+      <span class="badge">Reddit</span>
+      <span class="badge">Pinterest</span>
+      <span class="badge">Vimeo</span>
+      <span class="badge">Twitch</span>
+      <span class="badge">SoundCloud</span>
+      <span class="badge">Bluesky</span>
+      <span class="badge">+ mais</span>
+    </div>
+  </div>
+
+  <div class="server-bar">
+    <div class="server-dot loading" id="serverDot"></div>
+    <span class="server-text" id="serverText">Buscando servidores disponíveis...</span>
+    <span class="server-count" id="serverCount"></span>
+  </div>
+
+  <div class="card">
+    <div class="url-wrap">
+      <div class="input-box">
+        <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+        </svg>
+        <input type="url" class="url-input" id="urlInput" placeholder="Cole o link do vídeo aqui..." autocomplete="off" spellcheck="false">
+      </div>
+      <button class="paste-btn" onclick="pasteURL()">📋 Colar</button>
+    </div>
+
+    <div class="options">
+      <div class="opt-group">
+        <label>Tipo de download</label>
+        <div class="seg-ctrl">
+          <button class="seg-btn active" id="modeVideo" onclick="setMode('video')">🎬 Vídeo</button>
+          <button class="seg-btn" id="modeAudio" onclick="setMode('audio')">🎵 MP3</button>
+        </div>
+      </div>
+      <div class="opt-group" id="qualityGroup">
+        <label>Qualidade</label>
+        <select class="custom-select" id="qualitySelect">
+          <option value="max">Máxima disponível</option>
+          <option value="2160">4K (2160p)</option>
+          <option value="1440">2K (1440p)</option>
+          <option value="1080" selected>Full HD (1080p)</option>
+          <option value="720">HD (720p)</option>
+          <option value="480">SD (480p)</option>
+          <option value="360">360p</option>
+        </select>
+      </div>
+      <div class="opt-group" id="audioFmtGroup" style="display:none">
+        <label>Formato de áudio</label>
+        <select class="custom-select" id="audioFmtSelect">
+          <option value="mp3" selected>MP3</option>
+          <option value="ogg">OGG</option>
+          <option value="wav">WAV</option>
+          <option value="opus">OPUS</option>
+        </select>
+      </div>
+      <div class="opt-group" id="audioBitGroup" style="display:none">
+        <label>Bitrate</label>
+        <select class="custom-select" id="audioBitSelect">
+          <option value="320">320 kbps</option>
+          <option value="256">256 kbps</option>
+          <option value="128" selected>128 kbps</option>
+          <option value="96">96 kbps</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="dl-btn" id="dlBtn" onclick="startDownload()">
+      <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      Baixar agora
+    </button>
+
+    <div id="resultArea"></div>
+  </div>
+
+  <div class="info-section">
+    <div class="info-card"><div class="info-num">20+</div><div class="info-label">Plataformas</div></div>
+    <div class="info-card"><div class="info-num">4K</div><div class="info-label">Qualidade máxima</div></div>
+    <div class="info-card"><div class="info-num">100%</div><div class="info-label">Grátis</div></div>
+  </div>
+
+  <footer>
+    Powered by <a href="https://cobalt.tools" target="_blank">Cobalt.tools</a> (open-source) via instâncias da comunidade<br>
+    Nenhum dado é armazenado. Baixe apenas conteúdo publicamente disponível.
+  </footer>
+</div>
+
+<script>
+let currentMode = 'video';
+let availableInstances = [];
+let instancesLoaded = false;
+
+async function loadInstances() {
+  const dot = document.getElementById('serverDot');
+  const txt = document.getElementById('serverText');
+  const cnt = document.getElementById('serverCount');
+  try {
+    const res = await fetch('https://instances.cobalt.best/api', { cache: 'no-cache' });
+    const data = await res.json();
+    availableInstances = data
+      .filter(i => i.online && i.info && i.info.auth === false && i.info.cors === true)
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .map(i => i.protocol + '://' + i.api);
+    if (availableInstances.length > 0) {
+      dot.className = 'server-dot ok';
+      txt.textContent = 'Servidor pronto — ' + availableInstances[0].replace('https://', '');
+      cnt.textContent = availableInstances.length + ' disponíveis';
+      instancesLoaded = true;
+    } else { throw new Error('Nenhuma instância sem autenticação'); }
+  } catch (e) {
+    dot.className = 'server-dot err';
+    txt.textContent = 'Usando servidores alternativos';
+    cnt.textContent = '';
+    availableInstances = ['https://cobalt.meowing.de', 'https://cobalt.canine.tools'];
+    instancesLoaded = true;
+  }
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeVideo').classList.toggle('active', mode === 'video');
+  document.getElementById('modeAudio').classList.toggle('active', mode === 'audio');
+  document.getElementById('qualityGroup').style.display = mode === 'video' ? '' : 'none';
+  document.getElementById('audioFmtGroup').style.display = mode === 'audio' ? '' : 'none';
+  document.getElementById('audioBitGroup').style.display = mode === 'audio' ? '' : 'none';
+}
+
+async function pasteURL() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('urlInput').value = text;
+  } catch {
+    document.getElementById('urlInput').focus();
+    alert('Cole manualmente com Ctrl+V (ou Cmd+V no Mac).');
+  }
+}
+
+function showResult(html) {
+  document.getElementById('resultArea').innerHTML = html;
+}
+
+function iconCheck() { return `<svg viewBox="0 0 24 24" fill="#22c98a"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`; }
+function iconX() { return `<svg viewBox="0 0 24 24" fill="#f05a5a"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>`; }
+function iconGrid() { return `<svg viewBox="0 0 24 24" fill="#a599ff"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>`; }
+function dlIcon() { return `<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>`; }
+
+function renderSuccess(data) {
+  showResult(`<div class="result"><div class="result-card success">
+    <div class="result-header">
+      <div class="result-icon s">${iconCheck()}</div>
+      <div><div class="result-title">Pronto para download!</div><div class="result-sub">${data.filename || 'arquivo'}</div></div>
+    </div>
+    <a class="dl-link-btn" href="${data.url}" target="_blank" rel="noopener">
+      ${dlIcon()} Clique aqui para baixar
+    </a>
+  </div></div>`);
+}
+
+function renderPicker(data) {
+  const items = (data.picker || []).map((item, i) => `
+    <a class="picker-item" href="${item.url}" target="_blank" rel="noopener">
+      ${item.thumb ? `<img class="picker-thumb" src="${item.thumb}" alt="" onerror="this.style.display='none'">` : ''}
+      <span class="picker-label">Arquivo ${i + 1}</span>
+    </a>`).join('');
+  showResult(`<div class="result"><div class="result-card info">
+    <div class="result-header">
+      <div class="result-icon i">${iconGrid()}</div>
+      <div><div class="result-title">Múltiplos arquivos</div><div class="result-sub">${data.picker.length} arquivos — clique para baixar</div></div>
+    </div>
+    <div class="picker-grid">${items}</div>
+  </div></div>`);
+}
+
+function renderError(msg) {
+  showResult(`<div class="result"><div class="result-card error">
+    <div class="result-header">
+      <div class="result-icon e">${iconX()}</div>
+      <div><div class="result-title">Não foi possível baixar</div><div class="result-sub">${msg}</div></div>
+    </div>
+    <div class="action-row">
+      <button class="retry-btn" onclick="startDownload()">↻ Tentar novamente</button>
+      <a class="alt-btn" href="https://cobalt.tools" target="_blank" rel="noopener">🌐 Abrir cobalt.tools</a>
+    </div>
+  </div></div>`);
+}
+
+async function tryInstance(base, payload) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const res = await fetch(base + '/', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { clearTimeout(t); return null; }
+}
+
+async function startDownload() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url || !url.startsWith('http')) {
+    showResult(`<div class="result"><div class="result-card error">
+      <div class="result-header">
+        <div class="result-icon e">${iconX()}</div>
+        <div><div class="result-title">URL inválida</div><div class="result-sub">Cole um link válido (ex: https://youtube.com/watch?v=...)</div></div>
+      </div>
+    </div></div>`);
+    return;
+  }
+
+  if (!instancesLoaded || availableInstances.length === 0) {
+    showResult(`<div class="result"><div class="result-card info" style="padding:1rem 1.25rem">
+      <div class="result-title">Servidores carregando, aguarde um momento...</div>
+    </div></div>`);
+    return;
+  }
+
+  const btn = document.getElementById('dlBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<div class="spinner"></div> Processando...`;
+
+  const payload = { url, downloadMode: currentMode === 'audio' ? 'audio' : 'auto', filenameStyle: 'pretty' };
+  if (currentMode === 'video') payload.videoQuality = document.getElementById('qualitySelect').value;
+  else {
+    payload.audioFormat = document.getElementById('audioFmtSelect').value;
+    if (payload.audioFormat === 'mp3') payload.audioBitrate = document.getElementById('audioBitSelect').value;
+  }
+
+  const dot = document.getElementById('serverDot');
+  const txt = document.getElementById('serverText');
+  let lastError = 'Todos os servidores falharam. Tente novamente em instantes.';
+  let done = false;
+
+  for (let i = 0; i < Math.min(availableInstances.length, 6); i++) {
+    const inst = availableInstances[i];
+    dot.className = 'server-dot loading';
+    txt.textContent = 'Tentando: ' + inst.replace('https://', '') + '...';
+
+    const data = await tryInstance(inst, payload);
+    if (!data) { lastError = 'Servidor não respondeu — tentando próximo...'; continue; }
+
+    if (data.status === 'tunnel' || data.status === 'redirect') {
+      dot.className = 'server-dot ok';
+      txt.textContent = 'Sucesso via ' + inst.replace('https://', '');
+      renderSuccess(data); done = true; break;
+    } else if (data.status === 'picker') {
+      dot.className = 'server-dot ok';
+      txt.textContent = 'Pronto — ' + inst.replace('https://', '');
+      renderPicker(data); done = true; break;
+    } else if (data.status === 'error') {
+      lastError = data.error?.code ? data.error.code.replace(/\./g, ' ') : 'Plataforma bloqueou o download';
+      break;
+    }
+  }
+
+  if (!done) { dot.className = 'server-dot err'; txt.textContent = 'Download falhou'; renderError(lastError); }
+  btn.disabled = false;
+  btn.innerHTML = `${dlIcon()} Baixar agora`;
+}
+
+document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') startDownload(); });
+loadInstances();
+</script>
+</body>
+</html>
